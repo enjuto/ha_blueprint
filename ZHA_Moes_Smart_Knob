@@ -9,7 +9,6 @@ blueprint:
       description: Moes Tuya Smart Knob Device to use
       selector:
         device:
-          integration: zha
           model: TS004F
     linked_entity_id:
       name: Linked Entity (Optional)
