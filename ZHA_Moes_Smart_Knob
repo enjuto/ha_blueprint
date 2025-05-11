@@ -1,0 +1,110 @@
+blueprint:
+  name: ZHA - Moes Tuya Smart Knob (TS004F) controller for lights
+  description: Control lights with a Moes Tuya smart knob (the spinny ones). You can set functions for single press, and rotating left/right will change the brightness smoothly of the selected light.
+  domain: automation
+  source_url: https://gist.github.com/blizzrdof77/0f686e66db30c871e362e24388c3f8fa
+  input:
+    remote:
+      name: Remote
+      description: Moes Tuya Smart Knob Device to use
+      selector:
+        device:
+          integration: zha
+          manufacturer: _TZ3000_4fjiwweb
+          model: TS004F
+    linked_entity_id:
+      name: Linked Entity (Optional)
+      description: Optionally link an entity to use it's custom attributes defined in customize.yaml.
+      default: ""
+      selector:
+        entity: {}
+    light:
+      name: Light(s)
+      description: The light(s) to control
+      selector:
+        target:
+          entity:
+            domain: light
+    single_press:
+      name: Single press
+      description: Action to run on single press
+      default: []
+      selector:
+        action: {}
+mode: restart
+max_exceeded: silent
+trigger:
+- platform: event
+  event_type: zha_event
+  event_data:
+    device_id: !input 'remote'
+action:
+- variables:
+    command: '{{ trigger.event.data.command }}'
+    cluster_id: '{{ trigger.event.data.cluster_id }}'
+    endpoint_id: '{{ trigger.event.data.endpoint_id }}'
+    args: '{{ trigger.event.data.args }}'
+    linked_entity: !input 'linked_entity_id'
+    step_type: >-
+      {%- if (trigger.event.data.args|list)|length == 3 -%}
+        {%- set args = trigger.event.data.args|list -%}
+        {%- if args|first == 0 -%}
+          {{ 'up' }}
+        {%- elif args|first == 1 -%}
+          {{ 'down' }}
+        {%- else -%}
+          {{ '' }}
+        {%- endif -%}
+      {%- else -%}
+          {{ '' }}
+      {%- endif -%}
+    rate: >-
+      {%- if (trigger.event.data.args|list)|length == 3 -%}
+        {%- set args = trigger.event.data.args|list -%}
+        {{ args|last|int }}
+      {%- else -%}
+        {{ 0 }}
+      {%- endif -%}
+    amount: >-
+      {%- if (trigger.event.data.args|list)|length == 3 -%}
+        {%- set args = trigger.event.data.args|list -%}
+        {{ args[1]|int }}
+      {%- else -%}
+        {{ 0 }}
+      {%- endif -%}
+- choose:
+  - conditions:
+    - '{{ command == "toggle" }}'
+    - '{{ cluster_id == 6 }}'
+    - '{{ endpoint_id == 1 }}'
+    sequence: !input 'single_press'
+  - conditions:
+    - '{{ command == "step" }}'
+    - '{{ cluster_id == 8 }}'
+    - '{{ endpoint_id == 1 }}'
+    - '{{ step_type == "up" }}'
+    sequence:
+    - repeat:
+        count: '{{ rate }}'
+        sequence:
+        - service: light.turn_on
+          target: !input 'light'
+          data:
+            brightness_step: '{{ ((rate|int)/2)|int }}'
+            transition: '{{ rate|int }}'
+        - delay: '{{ rate|int }}'
+  - conditions:
+    - '{{ command == "step" }}'
+    - '{{ cluster_id == 8 }}'
+    - '{{ endpoint_id == 1 }}'
+    - '{{ step_type == "down" }}'
+    sequence:
+    - repeat:
+        count: '{{ rate }}'
+        sequence:
+        - service: light.turn_on
+          target: !input 'light'
+          data:
+            brightness_step: '{{ (((rate|int)/2)|int) * -1 }}'
+            transition: '{{ rate|int }}'
+        - delay: '{{ rate|int }}'
