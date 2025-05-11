@@ -6,10 +6,9 @@ blueprint:
   input:
     remote:
       name: Remote
-      description: Moes Tuya Smart Knob Device to use
+      description: Moes Tuya Smart Knob Device to use all
       selector:
         device:
-          model: TS004F
     linked_entity_id:
       name: Linked Entity (Optional)
       description: Optionally link an entity to use it's custom attributes defined in customize.yaml.
